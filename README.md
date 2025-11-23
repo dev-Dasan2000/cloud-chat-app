@@ -408,7 +408,7 @@ The assignment objectives were fully achieved, including:
 * Opening firewall ports and ensuring network communication
 * Building a functional chat interface
 
-This README/report provides a complete explanation of the system and can be submitted as part of your assignment ZIP file.
+This README/report provides a complete explanation of the system and can be submitted as part of the assignment ZIP file.
 
 ---
 

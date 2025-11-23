@@ -412,7 +412,3 @@ This README/report provides a complete explanation of the system and can be subm
 
 ---
 
-If you want, I can also generate:
-✅ A ZIP file structure
-✅ A more advanced version with UI improvements
-Just tell me!

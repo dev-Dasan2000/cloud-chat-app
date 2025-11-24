@@ -78,24 +78,27 @@ Refer to the image in the repository
 # **6.2 Backend Setup (Node.js/Express)**
 
 ### Install & RUN
+Navigate to the project folder
 
 ```bash
+cd backend
 npm install
 node server.js
 ```
 ---
 
 # **6.3 Frontend Setup (Next.js)**
-
+Navigate to the root folder of the project
 ### Install and Run
 ```bash
+cd frontend
 npm install
-Npm run dev
+npm run dev
 ```
-### ** Or build**
+### Build (only if needed)
 ```bash
 npm run build
-Npm start
+npm start
 ```
 
 # **8. Networking & Firewall Summary**

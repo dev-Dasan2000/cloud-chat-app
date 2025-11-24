@@ -77,7 +77,7 @@ Refer to the image in the repository
 
 # **6.2 Backend Setup (Node.js/Express)**
 
-### **Install & RUN**
+### Install & RUN
 
 ```bash
 npm install
@@ -87,7 +87,7 @@ node server.js
 
 # **6.3 Frontend Setup (Next.js)**
 
-### ** Install and Run**
+### Install and Run
 ```bash
 npm install
 Npm run dev

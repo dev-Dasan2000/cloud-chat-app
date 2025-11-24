@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { io, Socket } from "socket.io-client";
 
 interface Message {
   sender: string;
@@ -10,7 +11,6 @@ interface Message {
 
 export default function ChatPage() {
   // State management
-  const [backendUrl, setBackendUrl] = useState<string>("http://localhost:5000");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>("");
   const [username, setUsername] = useState<string>("");
@@ -22,7 +22,7 @@ export default function ChatPage() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -41,62 +41,61 @@ export default function ChatPage() {
     }
   }, [isUsernameSet]);
 
-  // Fetch messages from backend (AJAX Polling)
-  const fetchMessages = async () => {
-    try {
-      const response = await fetch(`${backendUrl}/messages`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Assuming backend returns an array of messages
-      if (Array.isArray(data)) {
-        setMessages(data);
-      } else if (data.messages && Array.isArray(data.messages)) {
-        setMessages(data.messages);
-      }
-      
-      setConnectionError("");
-      setIsLoading(false);
-      setIsOnline(true);
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      setConnectionError(`Unable to connect to server. Please check your connection.`);
-      setIsLoading(false);
-      setIsOnline(false);
-    }
-  };
-
-  // Set up polling mechanism with setInterval
+  // Socket.IO Connection - only connect when username is set
   useEffect(() => {
     if (!isUsernameSet) return;
 
-    // Initial fetch
-    fetchMessages();
+    // Create socket connection
+    const socket = io("http://localhost:5001", {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10,
+    });
 
-    // Set up polling every 2 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      fetchMessages();
-    }, 2000);
+    socketRef.current = socket;
+
+    // Connection event handlers
+    socket.on("connect", () => {
+      console.log("Connected to backend:", socket.id);
+      setIsOnline(true);
+      setConnectionError("");
+      setIsLoading(false);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from backend");
+      setIsOnline(false);
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Connection error:", error);
+      setConnectionError("Unable to connect to server. Please check your connection.");
+      setIsOnline(false);
+      setIsLoading(false);
+    });
+
+    // Receive initial messages when connecting
+    socket.on("initial_messages", (msgs: Message[]) => {
+      console.log("Received initial messages:", msgs);
+      setMessages(msgs);
+      setLastUpdate(new Date());
+      setIsLoading(false);
+    });
+
+    // Listen for new messages in real-time
+    socket.on("new_message", (msg: Message) => {
+      console.log("Received new message:", msg);
+      setMessages((prevMessages) => [...prevMessages, msg]);
+      setLastUpdate(new Date());
+    });
 
     // Cleanup on unmount
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
+      socket.disconnect();
     };
-  }, [backendUrl, isUsernameSet]); // Re-initialize when backend URL changes or username is set
+  }, [isUsernameSet]);
 
-  // Send message to backend
+  // Send message via HTTP POST to backend API
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) {
       return;
@@ -110,7 +109,10 @@ export default function ChatPage() {
         sender: username,
       };
 
-      const response = await fetch(`${backendUrl}/send`, {
+      console.log("Sending message to backend API:", payload);
+      
+      // Call backend HTTP endpoint
+      const response = await fetch("http://localhost:5001/api/messages/send", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -122,16 +124,15 @@ export default function ChatPage() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Clear input field on successful send
+      const data = await response.json();
+      console.log("Message sent successfully:", data);
+
+      // Clear input field
       setInputMessage("");
       setConnectionError("");
-      
-      // Immediately fetch messages after sending
-      await fetchMessages();
     } catch (error) {
       console.error("Error sending message:", error);
-      setConnectionError(`Failed to send message. Please try again.`);
-      setIsOnline(false);
+      setConnectionError("Failed to send message. Please try again.");
     } finally {
       setIsSending(false);
     }
@@ -142,13 +143,6 @@ export default function ChatPage() {
     if (e.key === "Enter" && !isSending) {
       handleSendMessage();
     }
-  };
-
-  // Handle backend URL change
-  const handleUrlChange = (newUrl: string) => {
-    setBackendUrl(newUrl);
-    setConnectionError("");
-    setIsLoading(true);
   };
 
   // Handle username submission
@@ -365,7 +359,7 @@ export default function ChatPage() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
-                disabled={isSending || !isOnline}
+                disabled={isSending}
                 maxLength={500}
                 className="w-full px-3 sm:px-5 py-3 sm:py-4 pr-12 sm:pr-16 border-2 border-gray-300 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition disabled:bg-gray-100 disabled:cursor-not-allowed text-sm sm:text-base text-gray-800 placeholder-gray-400"
               />
@@ -375,7 +369,7 @@ export default function ChatPage() {
             </div>
             <button
               onClick={handleSendMessage}
-              disabled={isSending || !inputMessage.trim() || !isOnline}
+              disabled={isSending || !inputMessage.trim()}
               className="px-3 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl sm:rounded-2xl hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 transition disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg transform hover:scale-105 active:scale-95 flex items-center space-x-1 sm:space-x-2"
             >
               {isSending ? (
@@ -413,11 +407,11 @@ export default function ChatPage() {
             </button>
           </div>
           {!isOnline && (
-            <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-600 flex items-center space-x-1">
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-amber-600 flex items-center space-x-1">
               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>Cannot send messages while disconnected</span>
+              <span>Real-time updates unavailable - messages will appear after sending</span>
             </p>
           )}
         </div>

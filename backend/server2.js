@@ -15,8 +15,8 @@ const io = socketIo(server, {
   }
 });
 
-const PORT = 5000;
-const TARGET_SERVER_URL = "http://localhost:5001";
+const PORT = 5001;
+const TARGET_SERVER_URL = "http://localhost:5000";
 const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 
 // Middleware
@@ -54,7 +54,6 @@ async function writeMessages(messages) {
 
 // POST endpoint to receive messages from a different server
 app.post('/api/messages/receive', async (req, res) => {
-    console.log('Received /api/messages/receive request with body:', req.body);
   try {
     const { message, sender, timestamp } = req.body;
     
@@ -115,7 +114,7 @@ app.post('/api/messages/send', async (req, res) => {
     io.emit('new_message', newMessage);
 
     // Forward to different server if targetServerUrl is provided or use default from env
-    const serverUrl = TARGET_SERVER_URL;
+    const serverUrl = "http://localhost:5000";
     if (serverUrl) {
       try {
         const fetch = require('node-fetch');
@@ -169,9 +168,6 @@ io.on('connection', (socket) => {
   // Handle client sending message via socket
   socket.on('send_message', async (data) => {
     try {
-      console.log('Received send_message event from client:', socket.id);
-      console.log('Message data:', data);
-      
       const newMessage = {
         id: Date.now().toString(),
         message: data.message,
@@ -185,7 +181,6 @@ io.on('connection', (socket) => {
       messages.push(newMessage);
       await writeMessages(messages);
 
-      console.log('Broadcasting new_message to all clients:', newMessage);
       // Broadcast to all clients
       io.emit('new_message', newMessage);
     } catch (error) {

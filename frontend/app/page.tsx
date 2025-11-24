@@ -46,7 +46,7 @@ export default function ChatPage() {
     if (!isUsernameSet) return;
 
     // Create socket connection
-    const socket = io("http://localhost:5001", {
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5001", {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 10,
@@ -112,7 +112,7 @@ export default function ChatPage() {
       console.log("Sending message to backend API:", payload);
       
       // Call backend HTTP endpoint
-      const response = await fetch("http://localhost:5001/api/messages/send", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/messages/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

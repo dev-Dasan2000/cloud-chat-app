@@ -10,13 +10,13 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*",
+    origin: process.env.CORS_ORIGIN || "*",
     methods: ["GET", "POST"]
   }
 });
 
-const PORT = 5000;
-const TARGET_SERVER_URL = "http://localhost:5001";
+const PORT = process.env.PORT || 5000;
+const TARGET_SERVER_URL = process.env.TARGET_SERVER_URL || "http://localhost:5001";
 const MESSAGES_FILE = path.join(__dirname, 'messages.json');
 
 // Middleware
